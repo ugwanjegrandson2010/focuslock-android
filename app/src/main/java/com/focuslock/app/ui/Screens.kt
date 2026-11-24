@@ -266,7 +266,14 @@ fun SessionsScreen(navController: androidx.navigation.NavHostController) {
 
     MainScaffold(navController) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-            TopAppBar(title = { Text("Focus sessions") })
+            TopAppBar(
+                title = { Text("Focus sessions") },
+                actions = {
+                    TextButton(onClick = { navController.navigate("create") }) {
+                        Text("Add Session")
+                    }
+                }
+            )
             if (active.isActive) {
                 Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Column(Modifier.padding(16.dp)) {
@@ -319,7 +326,18 @@ fun SessionsScreen(navController: androidx.navigation.NavHostController) {
                     }
                 }
                 if (sessions.isEmpty()) {
-                    item { Text("No sessions yet. Create your first focus session.") }
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("No sessions yet. Create your first focus session.")
+                            Spacer(Modifier.height(8.dp))
+                            Button(onClick = { navController.navigate("create") }) {
+                                Text("Add Session")
+                            }
+                        }
+                    }
                 }
             }
         }

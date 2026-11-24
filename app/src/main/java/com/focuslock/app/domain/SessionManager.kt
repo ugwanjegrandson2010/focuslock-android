@@ -47,6 +47,10 @@ class SessionManager(
     val events: SharedFlow<SessionEvent> = _events.asSharedFlow()
 
     private var currentSessionId: Long = -1L
+    private var currentDeadline: Long = 0L
+    private var activeSessionName: String = ""
+    private val finishGuard = OnceGuard()
+    private val activationGuard = OnceGuard()
     private var tickJob: Job? = null
     private var rules: List<BlockedAppEntity> = emptyList()
     private var markers: List<String> = emptyList()
@@ -166,7 +170,12 @@ class SessionManager(
 
     private suspend fun activate(id: Long, session: SessionEntity) {
         if (_state.value.isActive && currentSessionId == id) return
+        if (!activationGuard.runOnceSuspend { }) return
+        try {
+        finishGuard.reset()
         currentSessionId = id
+        currentDeadline = session.deadlineElapsed ?: 0L
+        activeSessionName = session.name
         rules = repository.getBlockedApps(id)
         markers = prefs.markers.first().toList()
 
@@ -193,23 +202,21 @@ class SessionManager(
 
         _events.tryEmit(SessionEvent.Started)
         startTicking()
+        } catch (e: Exception) {
+            throw e
+        } finally {
+            activationGuard.reset()
+        }
     }
 
     private fun startTicking() {
         tickJob?.cancel()
         tickJob = scope.launch {
             while (isActive) {
-                val session = repository.getSession(currentSessionId)
-                if (session == null || session.status != SessionStatus.ACTIVE) break
-                val deadline = session.deadlineElapsed ?: break
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                _state.value = _state.value.copy(
-                    session = session,
-                    remainingMs = remaining,
-                    blockedAttempts = repository.blockCount(session.id)
-                )
-                NotificationHelper.update(context, session.name, remaining)
-                if (remaining <= 0) {
+                val remaining = FocusMath.remainingMs(currentDeadline, SystemClock.elapsedRealtime())
+                _state.value = _state.value.copy(remainingMs = remaining)
+                NotificationHelper.update(context, activeSessionName, remaining)
+                if (remaining == 0L) {
                     finish(SessionStatus.COMPLETED)
                     break
                 }
@@ -224,7 +231,9 @@ class SessionManager(
             ?: return
         if (session.status != SessionStatus.ACTIVE) return
         if (session.finishStarted) return
+        if (!finishGuard.runOnceSuspend { }) return
 
+        try {
         repository.updateSession(session.copy(finishStarted = true))
         tickJob?.cancel()
 
@@ -259,6 +268,10 @@ class SessionManager(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try { context.startActivity(home) } catch (e: Exception) {}
+        } catch (e: Exception) {
+            finishGuard.reset()
+            throw e
+        }
     }
 
     fun abortWithPin(pin: String): Boolean {
@@ -285,6 +298,8 @@ class SessionManager(
 
     fun clearCurrent() {
         currentSessionId = -1
+        currentDeadline = 0L
+        activeSessionName = ""
         rules = emptyList()
         _state.value = ActiveState()
     }
