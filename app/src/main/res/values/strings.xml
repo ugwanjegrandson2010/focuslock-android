@@ -14,7 +14,7 @@
     <string name="short_form_feeds">Short-form feeds</string>
     <string name="reels">Instagram Reels</string>
     <string name="shorts">YouTube Shorts</string>
-    <string name="best_effort">Best-effort detection — may change when apps update.</string>
+    <string name="best_effort">Detection is best effort. It may change when apps update.</string>
     <string name="music">Focus music</string>
     <string name="screensaver">Screensaver</string>
     <string name="emergency_pin">Emergency PIN (optional)</string>
@@ -24,7 +24,7 @@
     <string name="no_history">No completed sessions yet.</string>
     <string name="session_active">Focus session active</string>
     <string name="session_ends_at">Ends at %1$s</string>
-    <string name="blocked_message">Blocked — stay focused. %1$s ends at %2$s.</string>
+    <string name="blocked_message">Blocked. Stay focused. %1$s ends at %2$s.</string>
     <string name="completed">Completed</string>
     <string name="aborted">Aborted</string>
     <string name="scheduled">Scheduled</string>

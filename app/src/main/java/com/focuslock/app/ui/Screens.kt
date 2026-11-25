@@ -1,8 +1,7 @@
 package com.focuslock.app.ui
 
 import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -22,15 +22,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +36,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -51,7 +48,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -70,10 +69,23 @@ import com.focuslock.app.domain.MusicSource
 import com.focuslock.app.domain.SessionConfig
 import com.focuslock.app.domain.SessionEvent
 import com.focuslock.app.domain.ScreensaverStyle
+import com.focuslock.app.ui.design.CosmicBackground
+import com.focuslock.app.ui.design.DisplayHeading
+import com.focuslock.app.ui.design.EyebrowText
+import com.focuslock.app.ui.design.GlassPanel
+import com.focuslock.app.ui.design.HairlineRule
+import com.focuslock.app.ui.design.NumericDisplay
+import com.focuslock.app.ui.design.PrimaryAction
+import com.focuslock.app.ui.design.RowsLabel
+import com.focuslock.app.ui.design.StatBlock
+import com.focuslock.app.ui.design.StatusPill
+import com.focuslock.app.ui.design.DesignTokens.Palette
+import com.focuslock.app.ui.design.DesignTokens.Space
+import com.focuslock.app.ui.design.DesignTokens.Type
 import com.focuslock.app.util.Apps
 import com.focuslock.app.util.Permissions
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -96,9 +108,7 @@ fun AppNavigation() {
     LaunchedEffect(Unit) {
         container.sessionManager.events.collect { event ->
             if (event is SessionEvent.Finished) {
-                navController.navigate("summary/${event.sessionId}") {
-                    launchSingleTop = true
-                }
+                navController.navigate("summary/${event.sessionId}") { launchSingleTop = true }
             }
         }
     }
@@ -119,9 +129,7 @@ fun AppNavigation() {
         composable(
             "summary/{id}",
             arguments = listOf(navArgument("id") { type = NavType.LongType })
-        ) { backStack ->
-            SummaryScreen(backStack.arguments?.getLong("id") ?: -1L, navController)
-        }
+        ) { backStack -> SummaryScreen(backStack.arguments?.getLong("id") ?: -1L, navController) }
     }
 }
 
@@ -133,9 +141,13 @@ private fun MainScaffold(
     val current by navController.currentBackStackEntryAsState()
     val route = current?.destination?.route
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
             if (route in setOf("sessions", "history", "settings")) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = Palette.Void.copy(alpha = 0.9f),
+                    contentColor = Palette.TextPrimary
+                ) {
                     NavigationBarItem(
                         selected = route == "sessions",
                         onClick = { navController.navigate("sessions") },
@@ -171,24 +183,29 @@ private fun PermissionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = !granted) { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = Space.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.titleSmall)
-            Text(description, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = TextStyle(fontSize = Type.Body, color = Palette.TextPrimary))
             Text(
-                if (granted) "Granted" else "Not granted — tap to open settings",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                description,
+                style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
+            )
+            Text(
+                if (granted) "Granted" else "Not granted. Tap to open settings",
+                style = TextStyle(
+                    fontSize = Type.Caption,
+                    color = if (granted) Palette.Success else Palette.Danger
+                )
             )
         }
+        StatusPill(if (granted) "On" else "Off", active = granted)
     }
 }
 
 @Composable
-private fun permissionRows(context: android.content.Context): List<Triple<String, String, () -> Unit>> = listOf(
+private fun permissionRows(context: android.content.Context) = listOf(
     Triple(
         "Accessibility access",
         "Lets Focus Lock notice blocked apps and return you to your session.",
@@ -229,28 +246,35 @@ fun OnboardingScreen(onDone: () -> Unit) {
         Permissions.hasUsageAccess(context),
         Permissions.ignoringBatteryOptimizations(context)
     )
-    val fullMode = container.blocker.isFullMode()
+    val isFullMode = container.blocker.isFullMode()
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(20.dp)) {
-            Text("Set up Focus Lock", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(8.dp))
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        Column(Modifier.padding(Space.lg).fillMaxSize()) {
+            Spacer(Modifier.height(Space.xl))
+            EyebrowText("Focus Lock")
+            DisplayHeading("Claim your attention.", Modifier.padding(top = Space.sm))
             Text(
-                if (fullMode) "Full mode is active. Apps can be truly blocked and the focus screen cannot be bypassed."
-                else "Standard mode: blocked apps are dismissed and covered, but the app cannot forcibly stop them or prevent uninstall. Full mode requires one-time device-owner setup (see Settings).",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (isFullMode) {
+                    "Full mode is active. Apps can be truly blocked and the focus screen cannot be bypassed."
+                } else {
+                    "Standard mode dismisses blocked apps and covers the screen. It cannot forcibly stop apps or prevent uninstall. Full mode needs one-time device setup, described in Settings."
+                },
+                style = TextStyle(fontSize = Type.Body, color = Palette.TextSecondary),
+                modifier = Modifier.padding(top = Space.md)
             )
-            Spacer(Modifier.height(16.dp))
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.height(Space.lg))
+            LazyColumn(Modifier.weight(1f)) {
                 items(rows.indices.toList()) { index ->
                     PermissionRow(rows[index].first, rows[index].second, granted[index], rows[index].third)
+                    HairlineRule()
                 }
             }
-            Button(
+            PrimaryAction(
+                text = "Continue",
                 onClick = { scope.launch { container.prefs.setOnboardingDone(); onDone() } },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Continue") }
+            )
         }
     }
 }
@@ -264,89 +288,125 @@ fun SessionsScreen(navController: androidx.navigation.NavHostController) {
     val sessions by container.repository.allSessions.collectAsStateWithLifecycle(emptyList())
     val scope = rememberCoroutineScope()
 
-    MainScaffold(navController) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-            TopAppBar(
-                title = { Text("Focus sessions") },
-                actions = {
-                    TextButton(onClick = { navController.navigate("create") }) {
-                        Text("Add Session")
-                    }
-                }
-            )
-            if (active.isActive) {
-                Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(active.session?.name.orEmpty(), style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            formatDuration(active.remainingMs),
-                            style = MaterialTheme.typography.displayMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            if (active.isFullMode) "Full mode · Apps blocked" else "Standard mode · Apps blocked",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            context.startActivity(Intent(context, FocusActivity::class.java)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }) { Text("Open focus screen") }
-                    }
-                }
-            }
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(sessions, key = { it.id }) { session ->
-                    Card(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                            scope.launch {
-                                val rules = container.repository.getBlockedApps(session.id)
-                                val config = SessionConfig(
-                                    name = session.name,
-                                    durationMs = session.plannedDurationMs,
-                                    blockedPackages = rules.filter { it.kind == "FULL" }.map { it.packageName },
-                                    featureTargets = rules.filter { it.kind == "FEATURE" }.map { it.packageName },
-                                    musicProfileId = session.musicProfileId,
-                                    screensaverStyle = ScreensaverStyle.valueOf(session.screensaverStyle)
-                                )
-                                container.sessionManager.start(config)
-                            }
-                        }
-                    ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(session.name, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "${formatDuration(session.plannedDurationMs)} · ${session.status}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            Text("Repeat ▸")
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        MainScaffold(navController) { padding ->
+            Column(Modifier.padding(padding).fillMaxSize().padding(horizontal = Space.lg)) {
+                TopAppBar(
+                    title = { EyebrowText("Focus sessions") },
+                    actions = {
+                        TextButton(onClick = { navController.navigate("create") }) {
+                            Text("Add Session", color = Palette.AccentSoft)
                         }
                     }
+                )
+
+                if (active.isActive) {
+                    GlassPanel(Modifier.fillMaxWidth().padding(top = Space.md)) {
+                        Column(Modifier.padding(Space.lg)) {
+                            EyebrowText("In progress")
+                            Text(
+                                active.session?.name.orEmpty(),
+                                style = TextStyle(fontSize = Type.Headline, color = Palette.TextPrimary)
+                            )
+                            NumericDisplay(formatDuration(active.remainingMs))
+                            Row {
+                                StatusPill(if (active.isFullMode) "Full mode" else "Standard mode")
+                                Spacer(Modifier.width(Space.sm))
+                                StatusPill("Apps blocked", active = false)
+                            }
+                            Spacer(Modifier.height(Space.md))
+                            PrimaryAction(
+                                text = "Open focus screen",
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(context, FocusActivity::class.java)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    Column(Modifier.padding(top = Space.md)) {
+                        EyebrowText("Your focus space")
+                        DisplayHeading(nameFromHour())
+                        Text(
+                            "Name a session, choose what to block, then let the timer carry you.",
+                            style = TextStyle(fontSize = Type.Body, color = Palette.TextSecondary)
+                        )
+                        Spacer(Modifier.height(Space.md))
+                        PrimaryAction(
+                            text = "Add Session",
+                            onClick = { navController.navigate("create") }
+                        )
+                    }
                 }
-                if (sessions.isEmpty()) {
-                    item {
+
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("Saved sessions")
+                LazyColumn(Modifier.weight(1f)) {
+                    items(sessions, key = { it.id }) { session ->
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        val rules = container.repository.getBlockedApps(session.id)
+                                        container.sessionManager.start(
+                                            SessionConfig(
+                                                name = session.name,
+                                                durationMs = session.plannedDurationMs,
+                                                blockedPackages = rules.filter { it.kind == "FULL" }.map { it.packageName },
+                                                featureTargets = rules.filter { it.kind == "FEATURE" }.map { it.packageName },
+                                                musicProfileId = session.musicProfileId,
+                                                screensaverStyle = runCatching {
+                                                    ScreensaverStyle.valueOf(session.screensaverStyle)
+                                                }.getOrDefault(ScreensaverStyle.GRADIENT)
+                                            )
+                                        )
+                                    }
+                                }
+                                .padding(vertical = Space.md)
                         ) {
-                            Text("No sessions yet. Create your first focus session.")
-                            Spacer(Modifier.height(8.dp))
-                            Button(onClick = { navController.navigate("create") }) {
-                                Text("Add Session")
-                            }
+                            RowsLabel(
+                                text = session.name,
+                                trailing = "${formatDuration(session.plannedDurationMs)}  ${session.status.lowercase()}"
+                            )
+                            HairlineRule()
+                        }
+                    }
+                    if (sessions.isEmpty()) {
+                        item {
+                            Text(
+                                "No sessions saved yet. Your first one is one tap away.",
+                                style = TextStyle(fontSize = Type.Body, color = Palette.TextSecondary),
+                                modifier = Modifier.padding(vertical = Space.lg)
+                            )
                         }
                     }
                 }
             }
         }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-            FloatingActionButton(
-                onClick = { navController.navigate("create") },
-                modifier = Modifier.padding(16.dp)
-            ) { Icon(Icons.Default.Add, "New session") }
-        }
+        FloatingActionButton(
+            onClick = { navController.navigate("create") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(Space.lg),
+            containerColor = Palette.Accent,
+            contentColor = Palette.Void
+        ) { Icon(Icons.Default.Add, "Add session") }
+    }
+}
+
+@Composable
+private fun nameFromHour(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when (hour) {
+        in 5..11 -> "Good morning."
+        in 12..17 -> "Good afternoon."
+        in 18..22 -> "Good evening."
+        else -> "Still awake."
     }
 }
 
@@ -376,159 +436,188 @@ fun CreateSessionScreen(navController: androidx.navigation.NavHostController) {
         it.label.contains(search, true) || it.packageName.contains(search, true)
     }
 
-    MainScaffold(navController) { padding ->
-        LazyColumn(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-            item {
-                TopAppBar(title = { Text("New focus session") })
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Session name") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = minutes, onValueChange = { minutes = it },
-                    label = { Text("Duration (minutes)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = startIn, onValueChange = { startIn = it },
-                    label = { Text("Start in (minutes, optional)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(16.dp))
-                Text("Apps to block", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = search, onValueChange = { search = it },
-                    label = { Text("Search apps") }, modifier = Modifier.fillMaxWidth()
-                )
-                TextButton(onClick = { showApps = !showApps }) {
-                    Text(if (showApps) "Hide app list (${selectedApps.size} selected)" else "Show app list (${selectedApps.size} selected)")
-                }
-                if (showApps) {
-                    Column(Modifier.height(240.dp)) {
-                        LazyColumn {
-                            items(filteredApps, key = { it.packageName }) { app ->
-                                val checked = app.packageName in selectedApps
-                                Row(
-                                    Modifier.fillMaxWidth().toggleable(value = checked) {
-                                        selectedApps = if (checked) selectedApps - app.packageName else selectedApps + app.packageName
-                                    }.padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(checked = checked, onCheckedChange = null)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(app.label, style = MaterialTheme.typography.bodyMedium)
+    fun buildConfig(scheduledOnly: Boolean): SessionConfig? {
+        val duration = (minutes.toLongOrNull() ?: 0) * 60_000L
+        val delay = (startIn.toLongOrNull() ?: 0) * 60_000L
+        if (name.isBlank()) { error = "Enter a session name"; return null }
+        if (duration <= 0) { error = "Duration must be positive"; return null }
+        if (scheduledOnly && delay <= 0) { error = "Enter a start delay in minutes"; return null }
+        return SessionConfig(
+            name = name.trim(),
+            durationMs = duration,
+            scheduledStartAt = if (delay > 0) System.currentTimeMillis() + delay else null,
+            blockedPackages = selectedApps.toList(),
+            featureTargets = features.toList(),
+            musicProfileId = profileId,
+            screensaverStyle = style,
+            pin = pin.ifBlank { null }
+        )
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        MainScaffold(navController) { padding ->
+            LazyColumn(
+                Modifier.padding(padding).fillMaxSize().padding(horizontal = Space.lg)
+            ) {
+                item {
+                    TopAppBar(title = { EyebrowText("New focus session") })
+                    DisplayHeading("Set the terms.", Modifier.padding(bottom = Space.lg))
+
+                    GlassPanel(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(Space.lg)) {
+                            OutlinedTextField(
+                                value = name, onValueChange = { name = it },
+                                label = { Text("Session name") },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true
+                            )
+                            Spacer(Modifier.height(Space.md))
+                            OutlinedTextField(
+                                value = minutes, onValueChange = { minutes = it },
+                                label = { Text("Duration in minutes") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(Space.md))
+                            OutlinedTextField(
+                                value = startIn, onValueChange = { startIn = it },
+                                label = { Text("Start in minutes (optional)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(Space.lg))
+                    EyebrowText("Apps to block")
+                    GlassPanel(Modifier.fillMaxWidth().padding(top = Space.sm)) {
+                        Column(Modifier.padding(Space.lg)) {
+                            OutlinedTextField(
+                                value = search, onValueChange = { search = it },
+                                label = { Text("Search installed apps") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            TextButton(onClick = { showApps = !showApps }) {
+                                Text(if (showApps) "Hide list (${selectedApps.size} selected)" else "Show list (${selectedApps.size} selected)")
+                            }
+                            if (showApps) {
+                                Column(Modifier.height(220.dp)) {
+                                    LazyColumn {
+                                        items(filteredApps, key = { it.packageName }) { app ->
+                                            val checked = app.packageName in selectedApps
+                                            Row(
+                                                Modifier.fillMaxWidth().toggleable(value = checked) {
+                                                    selectedApps = if (checked) selectedApps - app.packageName else selectedApps + app.packageName
+                                                }.padding(Space.sm),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Checkbox(checked = checked, onCheckedChange = null)
+                                                Spacer(Modifier.width(Space.sm))
+                                                Text(app.label)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("Short-form feeds", style = MaterialTheme.typography.titleMedium)
-                FeatureChip("Instagram Reels", "com.instagram.android", features) { features = it }
-                FeatureChip("YouTube Shorts", "com.google.android.youtube", features) { features = it }
-                Text("Best-effort detection — may change when apps update.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                Text("Focus music", style = MaterialTheme.typography.titleMedium)
-                Box {
-                    Button(onClick = { profileExpanded = true }) {
-                        Text(profiles.firstOrNull { it.id == profileId }?.name ?: "None")
+
+                    Spacer(Modifier.height(Space.lg))
+                    EyebrowText("Short-form feeds")
+                    Row {
+                        FeatureChip("Instagram Reels", "com.instagram.android", features) { features = it }
+                        Spacer(Modifier.width(Space.sm))
+                        FeatureChip("YouTube Shorts", "com.google.android.youtube", features) { features = it }
                     }
-                    DropdownMenu(expanded = profileExpanded, onDismissRequest = { profileExpanded = false }) {
-                        DropdownMenuItem(text = { Text("None") }, onClick = {
-                            profileId = null; profileExpanded = false
-                        })
-                        profiles.forEach { profile ->
-                            DropdownMenuItem(text = { Text(profile.name) }, onClick = {
-                                profileId = profile.id; profileExpanded = false
+                    Text(
+                        "Detection is best effort and may change when apps update.",
+                        style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
+                    )
+
+                    Spacer(Modifier.height(Space.lg))
+                    EyebrowText("Focus music")
+                    Box {
+                        TextButton(onClick = { profileExpanded = true }) {
+                            Text(profiles.firstOrNull { it.id == profileId }?.name ?: "None")
+                        }
+                        DropdownMenu(expanded = profileExpanded, onDismissRequest = { profileExpanded = false }) {
+                            DropdownMenuItem(text = { Text("None") }, onClick = {
+                                profileId = null; profileExpanded = false
                             })
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("Screensaver", style = MaterialTheme.typography.titleMedium)
-                Row {
-                    ScreensaverStyle.entries.forEach { option ->
-                        FilterChip(
-                            selected = style == option,
-                            onClick = { style = option },
-                            label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                            modifier = Modifier.padding(end = 6.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = pin, onValueChange = { pin = it },
-                    label = { Text("Emergency PIN (optional)") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                error?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
-                Spacer(Modifier.height(16.dp))
-                Row {
-                    Button(onClick = {
-                        val duration = (minutes.toLongOrNull() ?: 0) * 60_000L
-                        val delay = (startIn.toLongOrNull() ?: 0) * 60_000L
-                        if (name.isBlank()) { error = "Please enter a name"; return@Button }
-                        if (duration <= 0) { error = "Duration must be positive"; return@Button }
-                        val config = SessionConfig(
-                            name = name.trim(),
-                            durationMs = duration,
-                            scheduledStartAt = if (delay > 0) System.currentTimeMillis() + delay else null,
-                            blockedPackages = selectedApps.toList(),
-                            featureTargets = features.toList(),
-                            musicProfileId = profileId,
-                            screensaverStyle = style,
-                            pin = pin.ifBlank { null }
-                        )
-                        scope.launch {
-                            try {
-                                container.sessionManager.start(config)
-                                navController.popBackStack()
-                            } catch (e: Exception) {
-                                error = e.message ?: "Could not save session"
+                            profiles.forEach { profile ->
+                                DropdownMenuItem(text = { Text(profile.name) }, onClick = {
+                                    profileId = profile.id; profileExpanded = false
+                                })
                             }
                         }
-                    }) { Text("Start now") }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = {
-                        val duration = (minutes.toLongOrNull() ?: 0) * 60_000L
-                        val delay = (startIn.toLongOrNull() ?: 0) * 60_000L
-                        if (name.isBlank() || duration <= 0 || delay <= 0) {
-                            error = "Enter a name, duration and start time"; return@TextButton
+                    }
+
+                    Spacer(Modifier.height(Space.lg))
+                    EyebrowText("Screensaver")
+                    Row {
+                        ScreensaverStyle.entries.forEach { option ->
+                            FilterChip(
+                                selected = style == option,
+                                onClick = { style = option },
+                                label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Palette.Accent,
+                                    selectedLabelColor = Palette.Void
+                                ),
+                                modifier = Modifier.padding(end = Space.sm)
+                            )
                         }
-                        scope.launch {
-                            try {
-                                container.sessionManager.start(
-                                    SessionConfig(
-                                        name = name.trim(), durationMs = duration,
-                                        scheduledStartAt = System.currentTimeMillis() + delay,
-                                        blockedPackages = selectedApps.toList(),
-                                        featureTargets = features.toList(),
-                                        musicProfileId = profileId,
-                                        screensaverStyle = style,
-                                        pin = pin.ifBlank { null }
-                                    )
-                                )
-                                navController.popBackStack()
-                            } catch (e: Exception) {
-                                error = e.message ?: "Could not schedule session"
+                    }
+
+                    Spacer(Modifier.height(Space.lg))
+                    EyebrowText("Emergency PIN")
+                    OutlinedTextField(
+                        value = pin, onValueChange = { pin = it },
+                        label = { Text("Optional, 4 to 6 digits") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    error?.let {
+                        Spacer(Modifier.height(Space.sm))
+                        Text(it, color = Palette.Danger, style = TextStyle(fontSize = Type.Caption))
+                    }
+
+                    Spacer(Modifier.height(Space.lg))
+                    Row {
+                        PrimaryAction(
+                            text = "Start now",
+                            onClick = {
+                                buildConfig(false)?.let { config ->
+                                    scope.launch {
+                                        try {
+                                            container.sessionManager.start(config)
+                                            navController.popBackStack()
+                                        } catch (e: Exception) {
+                                            error = e.message ?: "Could not start session"
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(Space.md))
+                        TextButton(onClick = {
+                            buildConfig(true)?.let { config ->
+                                scope.launch {
+                                    try {
+                                        container.sessionManager.start(config)
+                                        navController.popBackStack()
+                                    } catch (e: Exception) {
+                                        error = e.message ?: "Could not schedule session"
+                                    }
+                                }
                             }
-                        }
-                    }) { Text("Schedule") }
+                        }) { Text("Schedule") }
+                    }
+                    Spacer(Modifier.height(Space.xxl))
                 }
-                Spacer(Modifier.height(60.dp))
             }
         }
     }
@@ -540,7 +629,11 @@ private fun FeatureChip(label: String, pkg: String, current: Set<String>, update
     FilterChip(
         selected = checked,
         onClick = { update(if (checked) current - pkg else current + pkg) },
-        label = { Text(label) }
+        label = { Text(label) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = Palette.Accent,
+            selectedLabelColor = Palette.Void
+        )
     )
 }
 
@@ -559,40 +652,50 @@ fun HistoryScreen(navController: androidx.navigation.NavHostController) {
     }
     val formatter = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
 
-    MainScaffold(navController) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-            TopAppBar(title = { Text("History & stats") })
-            Row(Modifier.fillMaxWidth()) {
-                StatCard("Sessions", count.toString(), Modifier.weight(1f))
-                StatCard("Focus time", formatDuration(total), Modifier.weight(1f))
-            }
-            mostBlocked?.let { Text("Most blocked: $it", style = MaterialTheme.typography.bodySmall) }
-            LazyColumn(Modifier.weight(1f)) {
-                items(sessions, key = { it.id }) { session ->
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(session.name, style = MaterialTheme.typography.titleMedium)
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        MainScaffold(navController) { padding ->
+            Column(Modifier.padding(padding).fillMaxSize().padding(horizontal = Space.lg)) {
+                TopAppBar(title = { EyebrowText("History and stats") })
+                DisplayHeading("The evidence.", Modifier.padding(bottom = Space.lg))
+                GlassPanel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(Space.lg)) {
+                        StatBlock("Total focus time", formatDuration(total), leading = true)
+                        HairlineRule()
+                        Row {
+                            StatBlock("Sessions", count.toString(), modifier = Modifier.weight(1f))
+                            StatBlock("Most blocked", mostBlocked ?: "None", modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("Completed sessions")
+                LazyColumn(Modifier.weight(1f)) {
+                    items(sessions, key = { it.id }) { session ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = Space.md)) {
+                            RowsLabel(
+                                text = session.name,
+                                trailing = formatDuration(session.actualDurationMs)
+                            )
                             Text(
-                                "${formatter.format(Date(session.completedAt ?: session.createdAt))} · " +
-                                    formatDuration(session.actualDurationMs) + " · " +
+                                "${formatter.format(Date(session.completedAt ?: session.createdAt))}  " +
                                     if (session.abortedByPin) "Aborted" else "Completed",
-                                style = MaterialTheme.typography.bodySmall
+                                style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
+                            )
+                            HairlineRule()
+                        }
+                    }
+                    if (sessions.isEmpty()) {
+                        item {
+                            Text(
+                                "No completed sessions yet.",
+                                style = TextStyle(fontSize = Type.Body, color = Palette.TextSecondary),
+                                modifier = Modifier.padding(vertical = Space.lg)
                             )
                         }
                     }
                 }
-                if (sessions.isEmpty()) item { Text("No completed sessions yet.") }
             }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier.padding(end = 8.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(value, style = MaterialTheme.typography.headlineSmall)
-            Text(label, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -617,22 +720,23 @@ fun SettingsScreen() {
     var message by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { markers = container.prefs.markers.first().joinToString("\n") }
 
-    Surface(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.padding(16.dp)) {
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = Space.lg)) {
             item {
-                TopAppBar(title = { Text("Settings") })
-                Text(
-                    if (container.blocker.isFullMode()) "Full mode active" else "Standard mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("Permissions", style = MaterialTheme.typography.titleMedium)
+                TopAppBar(title = { EyebrowText("Settings") })
+                DisplayHeading("Control the room.", Modifier.padding(bottom = Space.lg))
+                StatusPill(if (container.blocker.isFullMode()) "Full mode active" else "Standard mode")
+                Spacer(Modifier.height(Space.lg))
+
+                EyebrowText("Permissions")
                 rows.indices.forEach { index ->
                     PermissionRow(rows[index].first, rows[index].second, granted[index], rows[index].third)
+                    HairlineRule()
                 }
-                Spacer(Modifier.height(16.dp))
-                Text("Detection markers", style = MaterialTheme.typography.titleMedium)
+
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("Detection markers")
                 OutlinedTextField(
                     value = markers, onValueChange = { markers = it },
                     label = { Text("One marker per line") },
@@ -640,56 +744,70 @@ fun SettingsScreen() {
                 )
                 TextButton(onClick = {
                     scope.launch {
-                        container.prefs.setMarkers(markers.lines().map { it.trim() }.filter { it.isNotBlank() }.toSet())
+                        container.prefs.setMarkers(
+                            markers.lines().map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                        )
                         message = "Markers saved"
                     }
                 }) { Text("Save markers") }
-                Spacer(Modifier.height(16.dp))
-                Text("Streaming music profile", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(value = profileName, onValueChange = { profileName = it },
-                    label = { Text("Profile name") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = profileUrl, onValueChange = { profileUrl = it },
-                    label = { Text("HTTP(S) audio URL") }, modifier = Modifier.fillMaxWidth())
+
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("Streaming music profile")
+                OutlinedTextField(
+                    value = profileName, onValueChange = { profileName = it },
+                    label = { Text("Profile name") }, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = profileUrl, onValueChange = { profileUrl = it },
+                    label = { Text("HTTP or HTTPS audio URL") }, modifier = Modifier.fillMaxWidth()
+                )
                 TextButton(onClick = {
                     scope.launch {
                         if (profileName.isNotBlank() && profileUrl.startsWith("http")) {
                             container.repository.addProfile(
                                 MusicProfileEntity(
-                                    name = profileName.trim(), source = MusicSource.STREAMING.name,
+                                    name = profileName.trim(),
+                                    source = MusicSource.STREAMING.name,
                                     location = profileUrl.trim()
                                 )
                             )
                             profileName = ""; profileUrl = ""; message = "Profile saved"
-                        } else message = "Enter a name and an http(s) URL"
+                        } else {
+                            message = "Enter a name and an http(s) URL"
+                        }
                     }
                 }) { Text("Save profile") }
-                Spacer(Modifier.height(8.dp))
                 TextButton(onClick = {
                     scope.launch {
                         container.repository.addProfile(
                             MusicProfileEntity(
-                                name = "Bundled ambient", source = MusicSource.BUNDLED.name,
+                                name = "Bundled ambient",
+                                source = MusicSource.BUNDLED.name,
                                 location = "audio/focus_ambient.wav"
                             )
                         )
                         message = "Bundled profile added"
                     }
                 }) { Text("Add bundled ambient profile") }
-                Spacer(Modifier.height(16.dp))
-                Text("Full mode setup", style = MaterialTheme.typography.titleMedium)
+
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("Full mode setup")
                 Text(
                     "Install a signed build on a device with no accounts, then run:\n" +
                         "adb shell dpm set-device-owner com.focuslock.app/.blocking.DeviceAdminReceiver\n" +
                         "To remove:\n" +
                         "adb shell dpm remove-active-admin com.focuslock.app/.blocking.DeviceAdminReceiver",
-                    style = MaterialTheme.typography.bodySmall
+                    style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
                 )
-                Spacer(Modifier.height(16.dp))
-                Text("About", style = MaterialTheme.typography.titleMedium)
-                Text("All session data stays on your device. No analytics, no accounts, no tracking.",
-                    style = MaterialTheme.typography.bodySmall)
-                Text(message, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(60.dp))
+
+                Spacer(Modifier.height(Space.lg))
+                EyebrowText("About")
+                Text(
+                    "All session data stays on your device. No analytics, no accounts, no tracking.",
+                    style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
+                )
+                Text(message, color = Palette.Success, style = TextStyle(fontSize = Type.Caption))
+                Spacer(Modifier.height(Space.xxl))
             }
         }
     }
@@ -706,23 +824,34 @@ fun SummaryScreen(id: Long, navController: androidx.navigation.NavHostController
         session = container.repository.getSession(id)
         blocks = container.repository.blockCount(id)
     }
-    Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(24.dp)) {
-            TopAppBar(title = { Text("Session complete") })
+
+    Box(Modifier.fillMaxSize()) {
+        CosmicBackground()
+        Column(Modifier.padding(Space.lg).fillMaxSize()) {
+            TopAppBar(title = { EyebrowText("Session complete") })
             val s = session
             if (s == null) {
                 CircularProgressIndicator()
             } else {
-                Text(s.name, style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(16.dp))
-                Text("Status: ${if (s.status == SessionStatus.ABORTED) "Aborted" else "Completed"}")
-                Text("Planned: ${formatDuration(s.plannedDurationMs)}")
-                Text("Actual: ${formatDuration(s.actualDurationMs)}")
-                Text("Blocked attempts: $blocks")
-                Spacer(Modifier.height(24.dp))
-                Button(onClick = { navController.navigate("sessions") { popUpTo("sessions") { inclusive = true } } }) {
-                    Text("Done")
+                DisplayHeading(s.name)
+                Spacer(Modifier.height(Space.md))
+                GlassPanel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(Space.lg)) {
+                        StatusPill(if (s.status == SessionStatus.ABORTED) "Aborted" else "Completed")
+                        Spacer(Modifier.height(Space.md))
+                        StatBlock("Planned", formatDuration(s.plannedDurationMs))
+                        HairlineRule()
+                        StatBlock("Actual", formatDuration(s.actualDurationMs), leading = true)
+                        HairlineRule()
+                        StatBlock("Blocked attempts", blocks.toString())
+                    }
                 }
+                Spacer(Modifier.height(Space.lg))
+                PrimaryAction(
+                    text = "Done",
+                    onClick = { navController.navigate("sessions") { popUpTo("sessions") { inclusive = true } } },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

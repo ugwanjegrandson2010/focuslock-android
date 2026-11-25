@@ -1,24 +1,22 @@
 package com.focuslock.app.ui
 
-import android.app.ActivityManager
-import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -33,9 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,7 +40,13 @@ import com.focuslock.app.FocusLockApp
 import com.focuslock.app.domain.ActiveState
 import com.focuslock.app.domain.SessionEvent
 import com.focuslock.app.domain.ScreensaverStyle
-import kotlinx.coroutines.delay
+import com.focuslock.app.ui.design.CosmicBackground
+import com.focuslock.app.ui.design.DesignTokens.Motion
+import com.focuslock.app.ui.design.DesignTokens.Palette
+import com.focuslock.app.ui.design.DesignTokens.Space
+import com.focuslock.app.ui.design.DesignTokens.Type
+import com.focuslock.app.ui.design.EyebrowText
+import com.focuslock.app.ui.design.NumericDisplay
 
 class FocusActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,15 +56,10 @@ class FocusActivity : ComponentActivity() {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         }
-        setContent {
-            FocusLockTheme {
-                FocusScreen(onExit = { finish() })
-            }
-        }
+        setContent { FocusLockTheme { FocusScreen(onExit = { finish() }) } }
     }
 
     override fun onBackPressed() {
-        // No bypass while a focus session is active.
         if ((application as FocusLockApp).container.sessionManager.isActiveNow()) return
         super.onBackPressed()
     }
@@ -73,7 +71,7 @@ class FocusActivity : ComponentActivity() {
 
 @Composable
 private fun FocusScreen(onExit: () -> Unit) {
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val activity = context as FocusActivity
     val container = (context.applicationContext as FocusLockApp).container
     val state by container.sessionManager.state.collectAsStateWithLifecycle(ActiveState())
@@ -102,37 +100,33 @@ private fun FocusScreen(onExit: () -> Unit) {
     }.getOrDefault(ScreensaverStyle.GRADIENT)
 
     Box(Modifier.fillMaxSize()) {
-        Screensaver(style)
+        ScreensaverVisual(style)
         Column(
-            Modifier.fillMaxSize().padding(32.dp),
+            Modifier.fillMaxSize().padding(Space.xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                state.session?.name ?: "Focus session",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White
-            )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                EyebrowText(state.session?.name ?: "Focus session")
+                Spacer(Modifier.height(Space.sm))
                 Text(
-                    formatDuration(state.remainingMs),
-                    style = MaterialTheme.typography.displayLarge,
-                    color = Color.White
-                )
-                Text(
-                    if (state.isFullMode) "Full mode · Apps blocked" else "Standard mode · Apps blocked",
-                    color = Color.White.copy(alpha = 0.8f)
+                    if (state.isFullMode) "Apps are disabled until the timer ends"
+                    else "Apps are blocked until the timer ends",
+                    style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
                 )
             }
+
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                TextButton(onClick = { showPin = true }) {
-                    Text("End session with PIN", color = Color.White.copy(alpha = 0.7f))
-                }
+                NumericDisplay(formatDuration(state.remainingMs))
+                Spacer(Modifier.height(Space.sm))
                 Text(
                     "Blocked attempts: ${state.blockedAttempts}",
-                    color = Color.White.copy(alpha = 0.6f),
-                    style = MaterialTheme.typography.bodySmall
+                    style = TextStyle(fontSize = Type.Caption, color = Palette.TextSecondary)
                 )
+            }
+
+            TextButton(onClick = { showPin = true }) {
+                Text("End session with PIN", color = Palette.TextSecondary)
             }
         }
     }
@@ -150,16 +144,14 @@ private fun FocusScreen(onExit: () -> Unit) {
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true
                     )
-                    if (pinError) Text("Incorrect PIN", color = MaterialTheme.colorScheme.error)
+                    if (pinError) {
+                        Text("Incorrect PIN", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    if (container.sessionManager.abortWithPin(pin)) {
-                        showPin = false
-                    } else {
-                        pinError = true
-                    }
+                    if (container.sessionManager.abortWithPin(pin)) showPin = false else pinError = true
                 }) { Text("Confirm") }
             },
             dismissButton = {
@@ -170,60 +162,43 @@ private fun FocusScreen(onExit: () -> Unit) {
 }
 
 @Composable
-private fun Screensaver(style: ScreensaverStyle) {
-    when (style) {
-        ScreensaverStyle.GRADIENT -> {
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF0B1020), Color(0xFF1B2750), Color(0xFF101828))
-                    )
-                )
-            )
+private fun ScreensaverVisual(style: ScreensaverStyle) {
+    CosmicBackground(ambient = false)
+    val pulse by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(Motion.ambientMs),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ambient pulse"
+    )
+    Canvas(Modifier.fillMaxSize()) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val base = size.minDimension * 0.18f
+        val primary = when (style) {
+            ScreensaverStyle.BREATHING -> Palette.Accent
+            ScreensaverStyle.RAIN -> Palette.Success
+            else -> Palette.AccentSoft
         }
-        ScreensaverStyle.BREATHING -> {
-            val scale by animateFloatAsState(
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(4000),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "breathing"
-            )
-            Box(
-                Modifier.fillMaxSize().background(Color(0xFF070B16)),
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(Modifier.size((180 * scale).dp)) {
-                    drawCircle(color = Color(0xFF3F5BB7).copy(alpha = 0.55f))
-                }
-            }
-        }
-        ScreensaverStyle.RAIN -> {
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(listOf(Color(0xFF050A18), Color(0xFF0E2038)))
-                )
-            ) {
-                var offset by remember { mutableStateOf(0f) }
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        delay(50)
-                        offset = (offset + 2f) % 40f
-                    }
-                }
-                Canvas(Modifier.fillMaxSize()) {
-                    for (x in 0..size.width.toInt() step 40) {
-                        val y = (x * 7 + offset * 3) % size.height
-                        drawLine(
-                            color = Color(0xFF7C9CFF).copy(alpha = 0.25f),
-                            start = androidx.compose.ui.geometry.Offset(x.toFloat(), y),
-                            end = androidx.compose.ui.geometry.Offset(x.toFloat(), y + 40f),
-                            strokeWidth = 2f
-                        )
-                    }
-                }
-            }
-        }
+        drawCircle(
+            color = primary.copy(alpha = 0.10f * pulse),
+            radius = base * 3.2f * pulse,
+            center = center
+        )
+        drawCircle(
+            color = primary.copy(alpha = 0.16f),
+            radius = base * 2.1f,
+            center = center
+        )
+        drawCircle(
+            color = Palette.Hairline.copy(alpha = 0.8f),
+            radius = base * 1.35f,
+            center = center
+        )
+        drawCircle(
+            color = primary.copy(alpha = 0.55f),
+            radius = base * 0.82f * pulse,
+            center = center
+        )
     }
 }
